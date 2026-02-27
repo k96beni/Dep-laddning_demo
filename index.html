@@ -397,15 +397,16 @@ function toast(msg){ const t=el("#toast"); t.textContent=msg; t.classList.add("s
 let state = { view:"overview", horizonHours:4, search:"", filter:"all", scoreFilter:null, selected:{type:null,id:null}, chargersSort:{key:"stall",dir:1}, vehiclesSort:{key:"vehicle",dir:1}, patternMode:false };
 
 let vehicles = [
-  mkVehicle("ABC123","Volvo EX40", 58, 85, addMin(now, -15), addMin(now, 90),  "KEMP-01", 58, "charging"),
-  mkVehicle("XYZ789","VW ID.4",    25, 80, addMin(now, -5),  addMin(now, 70),  "ZAPT-02", 25, "risk"),
-  mkVehicle("KLM456","Polestar 2", 78, 78, addMin(now, -30), addMin(now, 110), "KEMP-03", 78, "ready"),
-  mkVehicle("DEF321","BMW iX1",    20, 90, addMin(now, -2),  addMin(now, 55),  "ZAPT-04", 20, "miss"),
-  mkVehicle("GHI987","Volvo EX30", 52, 85, addMin(now, -20), addMin(now, 150), "KEMP-05", 52, "charging"),
-  mkVehicle("JKL654","Mercedes EQE",15,60, addMin(now, -8),  addMin(now, 210), "ZAPT-06", 15, "risk"),
-  mkVehicle("MNO112","Audi Q8 e-tron",62,90, addMin(now, -40), addMin(now, 180),"KEMP-07", 62, "charging"),
-  mkVehicle("PQR334","Skoda Enyaq",38,80, addMin(now, -12), addMin(now, 80),  "ZAPT-08", 38, "risk"),
-  mkVehicle("STU556","Tesla Model Y", 8,70, addMin(now, -1), addMin(now, 40),  "KEMP-09", 8, "miss"),
+  // Lätta lastbilar (🛻) och tunga lastbilar (🚛) – demo
+  mkVehicle("ABC123","Volvo FL Electric (Lätt lastbil)", 58, 85, addMin(now, -15), addMin(now, 90),  "KEMP-01", 58, "charging"),
+  mkVehicle("XYZ789","Mercedes eSprinter (Lätt lastbil)", 25, 80, addMin(now, -5),  addMin(now, 70),  "ZAPT-02", 25, "risk"),
+  mkVehicle("KLM456","Renault Trucks D E-Tech (Lätt lastbil)", 78, 78, addMin(now, -30), addMin(now, 110), "KEMP-03", 78, "ready"),
+  mkVehicle("DEF321","Volvo FH Electric (Tung lastbil)", 20, 90, addMin(now, -2),  addMin(now, 55),  "ZAPT-04", 20, "miss"),
+  mkVehicle("GHI987","Scania 45R (Tung lastbil)", 52, 85, addMin(now, -20), addMin(now, 150), "KEMP-05", 52, "charging"),
+  mkVehicle("JKL654","MAN eTGX (Tung lastbil)", 15, 60, addMin(now, -8),  addMin(now, 210), "ZAPT-06", 15, "risk"),
+  mkVehicle("MNO112","Mercedes eActros 600 (Tung lastbil)", 62, 90, addMin(now, -40), addMin(now, 180),"KEMP-07", 62, "charging"),
+  mkVehicle("PQR334","DAF XF Electric (Tung lastbil)", 38, 80, addMin(now, -12), addMin(now, 80),  "ZAPT-08", 38, "risk"),
+  mkVehicle("STU556","Iveco eDaily (Lätt lastbil)", 8, 70, addMin(now, -1),  addMin(now, 40),  "KEMP-09", 8, "miss"),
 ];
 
 let stalls = makeStalls();
