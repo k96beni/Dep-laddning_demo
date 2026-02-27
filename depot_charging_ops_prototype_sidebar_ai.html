@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Depot Charging Ops – Interaktiv Prototype (Light + Sidebar)</title>
+  <style>
+    :root{
+      --bg:#ffffff; --panel:#ffffff; --panel2:#f6f7fb; --text:#101828; --muted:#667085; --line:#e4e7ec;
+      --good:#12b76a; --warn:#f79009; --bad:#f04438; --info:#2e90fa;
+      --ok-bg:#ecfdf3; --fault-bg:#fff1f3; --empty-ok-bg:#ffffff; --empty-bad-bg:#ffe4e8; --empty-border:#cbd5e1;
+      --shadow: 0 10px 25px rgba(16,24,40,.08); --radius:16px;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text)}
+    .app{display:grid;grid-template-columns: 260px 1fr; min-height:100vh}
+    .sidebar{border-right:1px solid var(--line);background:var(--panel);padding:18px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:14px}
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{width:36px;height:36px;border-radius:12px;background:radial-gradient(circle at 30% 30%, #b9ffd8, #12b76a 45%, #0c7a47 100%);box-shadow:var(--shadow)}
+    .title h1{font-size:14px;margin:0;letter-spacing:.2px}
+    .title p{margin:2px 0 0;color:var(--muted);font-size:12px}
+    .nav{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+    .nav-item{cursor:pointer;user-select:none;padding:10px 10px;border-radius:14px;border:1px solid transparent;display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--muted)}
+    .nav-item:hover{background:var(--panel2)}
+    .nav-item.active{background:rgba(46,144,250,.12);border-color:rgba(46,144,250,.35);color:var(--text)}
+    .nav-left{display:flex;align-items:center;gap:10px}
+    .nav-icon{width:28px;height:28px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:var(--panel);font-size:14px}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;font-size:11px;border:1px solid var(--line);background:var(--panel);color:var(--muted)}
+    .dot{width:8px;height:8px;border-radius:50%}
+    .dot.good{background:var(--good)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)} .dot.info{background:var(--info)}
+    .sidebar-footer{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:10px;border-top:1px solid var(--line)}
+    .main{max-width:1500px;margin:0 auto;padding:18px 18px 40px;width:100%}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+    .top-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .pill{background:var(--panel);border:1px solid var(--line);padding:8px 10px;border-radius:999px;display:flex;gap:8px;align-items:center;box-shadow:0 6px 18px rgba(16,24,40,.06)}
+    .pill label{font-size:12px;color:var(--muted)}
+    select,input{background:transparent;border:none;color:var(--text);outline:none;font-size:12px}
+    input::placeholder{color:#98a2b3}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .card-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--panel2);gap:12px}
+    .card-header h2{margin:0;font-size:13px;letter-spacing:.2px}
+    .card-header .meta{color:var(--muted);font-size:12px}
+    .content{padding:12px 14px}
+    button{cursor:pointer;user-select:none;border:none;border-radius:12px;padding:9px 10px;font-size:12px;color:var(--text);background:var(--panel2);border:1px solid var(--line);transition:.12s transform,.12s background}
+    button:hover{transform:translateY(-1px);background:#eef1ff}
+    button.primary{background:rgba(46,144,250,.14);border-color:rgba(46,144,250,.35)}
+    button.good{background:rgba(18,183,106,.14);border-color:rgba(18,183,106,.30)}
+    button.warn{background:rgba(247,144,9,.16);border-color:rgba(247,144,9,.30)}
+    button.bad{background:rgba(240,68,56,.14);border-color:rgba(240,68,56,.30)}
+    table{width:100%;border-collapse:collapse}
+    th,td{font-size:12px;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+    th{color:var(--muted);font-weight:700;text-align:left;background:#fbfcff;cursor:pointer}
+    tr{cursor:pointer}
+    tr:hover{background:#fafbff}
+    tr.selected{background:rgba(46,144,250,.08)}
+    .grid2{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;align-items:start}
+    .scoreboard{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .score{cursor:pointer;user-select:none;padding:10px;border-radius:14px;border:1px solid var(--line);background:var(--panel);transition:.15s transform,.15s background,.15s border-color}
+    .score:hover{transform:translateY(-2px);background:#fafbff}
+    .score.active{border-color:rgba(46,144,250,.55);background:rgba(46,144,250,.08)}
+    .score .kpi{font-size:18px;font-weight:800}
+    .score .label{font-size:12px;color:var(--muted);margin-top:4px}
+    .eagle{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+    .stall{cursor:pointer;user-select:none;padding:10px;border-radius:14px;border:1px solid var(--line);transition:.12s transform,.12s border-color,.12s background;min-height:104px;display:flex;flex-direction:column;justify-content:space-between;background:var(--panel)}
+    .stall:hover{transform:translateY(-2px)}
+    .stall.selected{border-color:rgba(46,144,250,.55)}
+    .stall.ok{background:var(--ok-bg)}
+    .stall.fault{background:var(--fault-bg)}
+    .stall.empty-ok{background:var(--empty-ok-bg);border-style:dashed;border-color:var(--empty-border)}
+    .stall.empty-bad{background:var(--empty-bad-bg);border-color:rgba(240,68,56,.35);border-style:solid}
+    .stall .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+    .stall .id{font-weight:900;font-size:12px;display:flex;gap:8px;align-items:center}
+    .sub{font-size:11px;color:var(--muted)}
+    .bottom{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px}
+    .chip{font-size:11px;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.7);border:1px solid var(--line);color:var(--muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .chip.good{border-color:rgba(18,183,106,.35);color:#067647;background:rgba(18,183,106,.12)}
+    .chip.warn{border-color:rgba(247,144,9,.35);color:#b54708;background:rgba(247,144,9,.14)}
+    .chip.bad{border-color:rgba(240,68,56,.35);color:#b42318;background:rgba(240,68,56,.12)}
+    .chip.info{border-color:rgba(46,144,250,.35);color:#175cd3;background:rgba(46,144,250,.12)}
+    .big-empty{font-size:14px;font-weight:900;color:#475467;letter-spacing:.4px;display:flex;align-items:center;gap:8px}
+    .icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;border:1px solid var(--line);background:rgba(255,255,255,.85);font-size:12px}
+    .gantt{display:flex;flex-direction:column;gap:8px}
+    .g-row{cursor:pointer;padding:10px;border-radius:14px;border:1px solid var(--line);background:var(--panel);display:grid;grid-template-columns:170px 1fr 170px;gap:10px;align-items:center}
+    .g-row:hover{background:#fafbff}
+    .g-row.selected{border-color:rgba(46,144,250,.55);background:rgba(46,144,250,.07)}
+    .g-name{font-weight:900;font-size:12px;display:flex;gap:8px;align-items:center}
+    .bar-wrap{position:relative;height:18px;border-radius:999px;background:#f2f4f7;border:1px solid var(--line);overflow:hidden}
+    .bar{position:absolute;left:0;top:0;height:100%;border-radius:999px;background:linear-gradient(90deg, rgba(18,183,106,.92), rgba(46,144,250,.85))}
+    .deadline{position:absolute;top:-4px;width:2px;height:26px;background:rgba(247,144,9,.95)}
+    .bar-label{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:rgba(16,24,40,.85)}
+    .g-meta{display:flex;flex-direction:column;gap:2px;align-items:flex-end}
+    .panel{position:fixed;top:0;right:-560px;width:560px;height:100vh;z-index:30;background:var(--panel);border-left:1px solid var(--line);box-shadow:-20px 0 50px rgba(16,24,40,.12);transition:right .18s ease;display:flex;flex-direction:column}
+    .panel.open{right:0}
+    .panel-head{padding:14px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:var(--panel2)}
+    .panel-head h3{margin:0;font-size:14px}
+    .panel-body{padding:14px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+    .kv{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .kv .item{padding:10px;border-radius:14px;border:1px solid var(--line);background:#fbfcff}
+    .kv .item.badbg{background:var(--empty-bad-bg);border-color:rgba(240,68,56,.35)}
+    .kv .item.warnbg{background:#fff7ed;border-color:rgba(247,144,9,.35)}
+    .kv .item.okbg{background:var(--ok-bg);border-color:rgba(18,183,106,.30)}
+    .kv .k{font-size:11px;color:var(--muted)}
+    .kv .v{font-size:13px;font-weight:900;margin-top:4px}
+    .chart{border:1px solid var(--line);border-radius:14px;background:#fff;padding:10px}
+    .chart-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    canvas{width:100%;height:160px;border-radius:10px;background:#fff}
+    .timeline{border:1px solid var(--line);border-radius:14px;background:#fbfcff;padding:10px}
+    .t-item{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+    .t-item:last-child{border-bottom:none}
+    .toast{position:fixed;left:18px;bottom:18px;z-index:40;background:rgba(16,24,40,.92);border:1px solid rgba(255,255,255,.14);color:#fff;padding:10px 12px;border-radius:14px;box-shadow:var(--shadow);max-width:560px;opacity:0;transform:translateY(10px);transition:.18s;pointer-events:none}
+    .toast.show{opacity:1;transform:translateY(0)}
+    .hidden{display:none !important}
+    .footer-note{margin-top:10px;color:var(--muted);font-size:11px}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(16,24,40,.35);z-index:50;display:none;align-items:center;justify-content:center;padding:16px}
+    .modal-backdrop.open{display:flex}
+    .modal{width:min(720px,96vw);background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+    .modal .head{padding:14px;background:var(--panel2);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+    .modal .body{padding:14px}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+    .field{border:1px solid var(--line);border-radius:14px;background:#fbfcff;padding:10px}
+    .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px}
+    .field input,.field select{width:100%}
+    @media (max-width:1100px){
+      .app{grid-template-columns:1fr}
+      .sidebar{position:relative;height:auto}
+      .eagle{grid-template-columns:repeat(3,1fr)}
+      .panel{width:100%}
+      .grid2{grid-template-columns:1fr}
+      .form-row{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div class="title"><h1>Depot Charging Ops</h1><p>Interaktiv prototyp</p></div>
+    </div>
+    <div class="nav">
+      <div class="nav-item active" data-view="overview">
+        <div class="nav-left"><span class="nav-icon">📟</span><div><div style="font-weight:800;color:inherit">Översikt</div><div class="sub">Eagle • Gantt • Queue</div></div></div>
+        <span class="badge"><span class="dot info"></span><span id="navClock">—</span></span>
+      </div>
+      <div class="nav-item" data-view="vehicles">
+        <div class="nav-left"><span class="nav-icon">🚗</span><div><div style="font-weight:800;color:inherit">Fordon</div><div class="sub">Sessioner • mönster</div></div></div>
+        <span class="badge"><span class="dot info"></span><span id="navVehiclesCount">—</span></span>
+      </div>
+      <div class="nav-item" data-view="chargers">
+        <div class="nav-left"><span class="nav-icon">⚡</span><div><div style="font-weight:800;color:inherit">Laddare</div><div class="sub">Snapshot • sortering</div></div></div>
+        <span class="badge"><span class="dot info"></span><span id="navStallsCount">—</span></span>
+      </div>
+      <div class="nav-item" data-view="schedule">
+        <div class="nav-left"><span class="nav-icon">🗓️</span><div><div style="font-weight:800;color:inherit">Schema</div><div class="sub">Manuellt • CSV</div></div></div>
+        <span class="badge"><span class="dot info"></span><span id="navScheduleCount">—</span></span>
+      </div>
+      <div class="nav-item" data-view="alerts">
+        <div class="nav-left"><span class="nav-icon">🚨</span><div><div style="font-weight:800;color:inherit">Larm</div><div class="sub">Kronologisk lista</div></div></div>
+        <span class="badge" id="navAlertsBadge"><span class="dot warn"></span><span id="navAlertsCount">—</span></span>
+      </div>
+    
+      <div class="nav-item" data-view="ai">
+        <div class="nav-left"><span class="nav-icon">🤖</span><div><div style="font-weight:800;color:inherit">AI insights</div><div class="sub">Mönster • orsaker</div></div></div>
+        <span class="badge"><span class="dot info"></span><span id="navAiCount">—</span></span>
+      </div>
+
+    </div>
+    <div class="sidebar-footer">
+      <div class="badge"><span class="dot good"></span><span id="sidebarEmptyMeta">—</span></div>
+      <div class="badge"><span class="dot warn"></span><span id="sidebarActiveMeta">—</span></div>
+      <div class="footer-note">Klicka på 🅿️ stall eller 🚗 regnr för sidopanel med laddkurva.</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header>
+      <div>
+        <div style="font-size:13px;font-weight:900" id="pageTitle">Översikt</div>
+        <div class="sub" id="pageSubtitle">Exception-first • tydliga lediga stalls</div>
+      </div>
+      <div class="top-controls">
+        <div class="pill"><label>Tidshorisont</label>
+          <select id="horizon"><option value="2">2h</option><option value="4" selected>4h</option><option value="8">8h</option><option value="24">24h</option></select>
+        </div>
+        <div class="pill"><label>Sök</label><input id="search" placeholder="Regnr, stall, felkod…" /></div>
+        <div class="pill"><label>Filter</label>
+          <select id="filter"><option value="all" selected>Alla</option><option value="risk">Risk</option><option value="miss">Missar</option><option value="healthy">Healthy</option><option value="empty">Lediga stalls</option></select>
+        </div>
+        <div class="actions"><button class="primary" id="btnSimulate">Simulera</button><button id="btnClear">Rensa</button></div>
+      </div>
+    </header>
+
+    <section id="view-overview">
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-header">
+          <div><h2>Fleet Readiness</h2><div class="meta" id="summaryMeta">—</div></div>
+          <div class="actions"><span class="badge"><span class="dot good"></span><span id="emptyMeta">—</span></span><span class="badge"><span class="dot warn"></span><span id="activeMeta">—</span></span></div>
+        </div>
+        <div class="content">
+          <div class="scoreboard" id="scoreboard"></div>
+          <div class="footer-note">Eagle: grön=OK session • rosa=fel i session • vit/dash=ledig stall (ok laddare) • mörkare röd=ledig men laddare ej ok.</div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-header">
+            <div><h2>Eagle View (🅿️ stalls)</h2><div class="meta">Stall = hårdvara + uttagsnr (ex: KEMP-01). Klicka för stall-vy.</div></div>
+            <span class="badge"><span class="dot info"></span><span id="gridMeta">—</span></span>
+          </div>
+          <div class="content"><div class="eagle" id="eagle"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div><h2>Exception Queue</h2><div class="meta">Bygger på larm-data (samma källa som “delay codes”)</div></div>
+            <span class="badge"><span class="dot warn"></span><span id="queueMeta">—</span></span>
+          </div>
+          <div class="content" style="padding:0">
+            <table>
+              <thead><tr><th style="width:120px">Tid</th><th>Problem</th><th style="width:92px">Status</th></tr></thead>
+              <tbody id="queue"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px;">
+        <div class="card-header">
+          <div><h2>Gantt / Vehicle timeline (🚗)</h2><div class="meta">Klicka regnr för fordons-vy</div></div>
+          <span class="badge"><span class="dot info"></span><span id="ganttMeta">—</span></span>
+        </div>
+        <div class="content"><div class="gantt" id="gantt"></div></div>
+      </div>
+    </section>
+
+    <section id="view-vehicles" class="hidden">
+      <div class="card">
+        <div class="card-header">
+          <div><h2>Fordon (🚗)</h2><div class="meta">Lista + laddmängd per session • redigera faktisk kWh • mönster per fordon</div></div>
+          <div class="actions"><button id="btnTogglePattern" class="primary">Historiskt mönster: AV</button></div>
+        </div>
+        <div class="content" style="padding:0">
+          <table>
+            <thead><tr>
+              <th data-sort="vehicle">Fordon</th>
+              <th data-sort="model">Modell</th>
+              <th data-sort="sessions">Sessioner (24h)</th>
+              <th data-sort="kwh">kWh / session (faktisk)</th>
+              <th data-sort="fail">Fel / avvik</th>
+            </tr></thead>
+            <tbody id="vehiclesTable"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <div class="card-header"><div><h2>Fordonsmönster (demo)</h2><div class="meta">Välj ett fordon för att se felmönster</div></div><span class="badge"><span class="dot info"></span>Demo</span></div>
+        <div class="content" id="vehiclePatterns"><div class="footer-note">Här kan ni senare visa felkoder/ej uppnått behov per fordon.</div></div>
+      </div>
+    </section>
+
+    <section id="view-chargers" class="hidden">
+      <div class="card">
+        <div class="card-header"><div><h2>Laddare snapshot (⚡)</h2><div class="meta">Sortera på kolumnrubriker • klicka rad för stall-vy</div></div><span class="badge"><span class="dot info"></span><span id="chargersMeta">—</span></span></div>
+        <div class="content" style="padding:0">
+          <table>
+            <thead><tr>
+              <th data-sort="stall">Stall</th>
+              <th data-sort="health">Health</th>
+              <th data-sort="occupied">Status</th>
+              <th data-sort="power">Power</th>
+              <th data-sort="vehicle">Fordon</th>
+            </tr></thead>
+            <tbody id="chargersTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-schedule" class="hidden">
+      <div class="card">
+        <div class="card-header">
+          <div><h2>Schema (🗓️)</h2><div class="meta">Manuellt schema per fordon eller importera CSV: ankomst, avresa, laddbehov</div></div>
+          <div class="actions"><button class="primary" id="btnOpenCsvHelp">CSV-format</button><button id="btnClearSchedule">Rensa schema</button></div>
+        </div>
+        <div class="content">
+          <div class="form-row">
+            <div class="field"><label>Fordon (regnr)</label><select id="schVehicle"></select></div>
+            <div class="field"><label>Laddbehov (kWh)</label><input id="schNeed" type="number" value="35"/></div>
+            <div class="field"><label>Ankomst (HH:MM)</label><input id="schArr" type="time" value="18:00"/></div>
+            <div class="field"><label>Avresa (HH:MM)</label><input id="schDep" type="time" value="07:10"/></div>
+          </div>
+          <div class="actions">
+            <button class="good" id="btnAddSchedule">Lägg till schema</button>
+            <label class="pill" style="cursor:pointer">
+              <span style="font-size:12px;color:var(--muted)">Importera CSV</span>
+              <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none"/>
+              <span class="badge"><span class="dot info"></span>Välj fil</span>
+            </label>
+          </div>
+          <div class="footer-note" style="margin-top:12px">Import sker lokalt i webbläsaren (demo).</div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <div class="card-header"><div><h2>Schema-lista</h2><div class="meta">Klicka rad för att öppna fordon</div></div><span class="badge"><span class="dot info"></span><span id="scheduleMeta">—</span></span></div>
+        <div class="content" style="padding:0">
+          <table>
+            <thead><tr><th>Fordon</th><th>Ankomst</th><th>Avresa</th><th>Laddbehov (kWh)</th><th>Status</th></tr></thead>
+            <tbody id="scheduleTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-alerts" class="hidden">
+      <div class="card">
+        <div class="card-header">
+          <div><h2>Larm (🚨)</h2><div class="meta">Kronologisk lista • indikerar aktiva larm • stäng/öppna larm</div></div>
+          <div class="actions"><button class="primary" id="btnAlertSettings">Ställ in larm</button><button id="btnCloseAll">Stäng alla (demo)</button></div>
+        </div>
+        <div class="content" style="padding:0">
+          <table>
+            <thead><tr><th style="width:140px">Tid</th><th>Larm</th><th style="width:120px">Status</th><th style="width:120px">Åtgärd</th></tr></thead>
+            <tbody id="alertsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <section id="view-ai" class="hidden">
+      <div class="card">
+        <div class="card-header">
+          <div><h2>AI insights (🤖)</h2><div class="meta">Samlar per fordon och per laddare insikter baserat på historik (demo)</div></div>
+          <div class="actions">
+            <button class="primary" id="btnRefreshInsights">Uppdatera insights</button>
+          </div>
+        </div>
+        <div class="content" id="aiInsightsWrap"></div>
+      </div>
+    </section>
+
+
+  </main>
+</div>
+
+<aside class="panel" id="panel">
+  <div class="panel-head">
+    <div><h3 id="panelTitle">Detaljer</h3><div class="sub" id="panelSubtitle">—</div></div>
+    <button id="panelClose">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="kv" id="panelKV"></div>
+    <div class="chart" id="panelChartWrap" style="display:none">
+      <div class="chart-head"><strong style="font-size:12px">Laddkurva (session)</strong><span class="badge"><span class="dot info"></span><span id="panelChartMeta">—</span></span></div>
+      <canvas id="panelChart" width="520" height="160"></canvas>
+      <div class="footer-note">Kurvan visar effekt (kW) över tid (demo-data).</div>
+    </div>
+    <div class="timeline">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <strong style="font-size:12px">Händelser</strong>
+        <span class="badge"><span class="dot info"></span><span id="panelEventCount">—</span></span>
+      </div>
+      <div id="panelTimeline"></div>
+    </div>
+    <div class="actions" id="panelActions"></div>
+    <div class="footer-note">Mock-actions uppdaterar demo-data.</div>
+  </div>
+</aside>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <div class="head">
+      <div><div style="font-weight:900" id="modalTitle">Inställningar</div><div class="sub" id="modalSubtitle">—</div></div>
+      <button id="modalClose">✕</button>
+    </div>
+    <div class="body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const now = new Date();
+const fmtTime = (d) => d.toLocaleTimeString('sv-SE', {hour:'2-digit', minute:'2-digit'});
+const addMin = (d, m) => new Date(d.getTime() + m*60000);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const el = (sel) => document.querySelector(sel);
+const els = (sel) => Array.from(document.querySelectorAll(sel));
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function pickWeighted(pairs){ const r=Math.random(); let acc=0; for(const [v,w] of pairs){ acc+=w; if(r<=acc) return v; } return pairs[pairs.length-1][0]; }
+function escapeHtml(str){ return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
+function toast(msg){ const t=el("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 2200); }
+
+let state = { view:"overview", horizonHours:4, search:"", filter:"all", scoreFilter:null, selected:{type:null,id:null}, chargersSort:{key:"stall",dir:1}, vehiclesSort:{key:"vehicle",dir:1}, patternMode:false };
+
+let vehicles = [
+  mkVehicle("ABC123","Volvo EX40", 58, 85, addMin(now, -15), addMin(now, 90),  "KEMP-01", 58, "charging"),
+  mkVehicle("XYZ789","VW ID.4",    25, 80, addMin(now, -5),  addMin(now, 70),  "ZAPT-02", 25, "risk"),
+  mkVehicle("KLM456","Polestar 2", 78, 78, addMin(now, -30), addMin(now, 110), "KEMP-03", 78, "ready"),
+  mkVehicle("DEF321","BMW iX1",    20, 90, addMin(now, -2),  addMin(now, 55),  "ZAPT-04", 20, "miss"),
+  mkVehicle("GHI987","Volvo EX30", 52, 85, addMin(now, -20), addMin(now, 150), "KEMP-05", 52, "charging"),
+  mkVehicle("JKL654","Mercedes EQE",15,60, addMin(now, -8),  addMin(now, 210), "ZAPT-06", 15, "risk"),
+  mkVehicle("MNO112","Audi Q8 e-tron",62,90, addMin(now, -40), addMin(now, 180),"KEMP-07", 62, "charging"),
+  mkVehicle("PQR334","Skoda Enyaq",38,80, addMin(now, -12), addMin(now, 80),  "ZAPT-08", 38, "risk"),
+  mkVehicle("STU556","Tesla Model Y", 8,70, addMin(now, -1), addMin(now, 40),  "KEMP-09", 8, "miss"),
+];
+
+let stalls = makeStalls();
+let sessionCurves = new Map();
+let vehicleSessions = new Map();
+let schedules = [];
+let alarms = [];
+
+initDemoData();
+
+function mkVehicle(reg, model, soc, target, arrival, departure, stallId, progressSoc, status){
+  const rateKw = [35,45,60,90,120][Math.floor(Math.random()*5)];
+  const estDone = addMin(now, Math.round((target - progressSoc) * 1.6));
+  const reason = status === "miss" ? pick(["Avbrott", "Startade ej", "Offline", "Långsam"]) :
+                 status === "risk" ? pick(["Långsam", "Sen ankomst", "Intermittent", "Peak limit"]) :
+                 status === "charging" ? pick(["Pågår", "Pågår", "Köad"]) : "—";
+  return { id:reg, model, soc, target, arrival, departure, stallId, progressSoc, rateKw, estDone, status,
+           lastError: (reason==="Offline" ? "E07" : (reason==="Startade ej" ? "E13" : (reason==="Avbrott" ? "E21" : ""))), reason };
+}
+
+function makeStalls(){
+  const vendors = ["KEMP","ZAPT"];
+  const list = [];
+  for(let i=1;i<=12;i++){
+    const vendor = vendors[(i-1)%2];
+    const id = `${vendor}-${String(i).padStart(2,'0')}`;
+    const health = pickWeighted([["healthy",0.68],["intermittent",0.16],["fault",0.10],["offline",0.06]]);
+    const maxPowerKw = pick([60,90,120,150,180]);
+    list.push({ id, vendor, outlet:i, maxPowerKw, health, lastSeen:addMin(now, -Math.floor(Math.random()*180)), errorCode: health==="offline" ? "E07" : (health==="fault" ? pick(["E21","E13","E34"]) : ""), assignedVehicleId:null, currentPowerKw:0 });
+  }
+  for(const v of vehicles){
+    const s = list.find(x=>x.id===v.stallId);
+    if(s) s.assignedVehicleId = v.id;
+  }
+  for(const s of list){
+    const v = s.assignedVehicleId ? vehicles.find(v=>v.id===s.assignedVehicleId) : null;
+    s.currentPowerKw = calcCurrentPowerKw(s, v);
+  }
+  return list;
+}
+
+function calcCurrentPowerKw(stall, v){
+  if(!v) return 0;
+  if(stall.health==="offline") return 0;
+  if(v.status==="ready") return 0;
+  if(v.status==="miss" && v.reason==="Offline") return 0;
+  const base = Math.min(stall.maxPowerKw, v.rateKw + pick([-10,0,10,20]));
+  const cap = (stall.health==="fault") ? 0.35 : (stall.health==="intermittent" ? 0.65 : 1.0);
+  const jitter = pick([-8,-4,0,3,6]);
+  return Math.max(0, Math.round((base*cap)+jitter));
+}
+
+function makeSessionCurve(maxKw){
+  const pts = [];
+  let current = Math.max(0, Math.round(maxKw * pick([0.25,0.35,0.45,0.55])));
+  for(let i=60;i>=0;i--){
+    const noise = pick([-6,-3,0,2,4]);
+    const trend = (i<20) ? -2 : (i<40 ? -1 : 0);
+    current = clamp(current + noise + trend, 0, maxKw);
+    pts.push({ tMin: -i, kw: current });
+  }
+  return pts;
+}
+
+function mkAlarm(id, time, dc, vehicleId, stallId, message){
+  return { id, time, code: dc.code, label: dc.label, vehicleId, stallId, message, status:"active" };
+}
+
+function initDemoData(){
+  for(const v of vehicles){
+    const s = stalls.find(st=>st.id===v.stallId);
+    sessionCurves.set(v.id, makeSessionCurve(s ? s.maxPowerKw : 120));
+
+    const sessionCount = pick([1,1,2,2,3]);
+    const sessions = [];
+    for(let i=0;i<sessionCount;i++){
+      const planned = pick([18,22,28,35,42,55]);
+      const actual = planned + pick([-6,-3,0,4,8]);
+      const st = pickWeighted([["ok",0.72],["fault",0.28]]);
+      sessions.push({ id:`${v.id}-SESS-${i+1}`, start:addMin(now, -pick([20,60,120,200])), end:addMin(now, -pick([2,10,15])), plannedKwh:planned, actualKwh:Math.max(0,actual), status:st });
+    }
+    vehicleSessions.set(v.id, sessions);
+  }
+
+  schedules = vehicles.slice(0,6).map((v, idx)=>({ id:"SCH-"+(1000+idx), vehicleId:v.id, arrival:"18:00", departure:pick(["06:30","07:10","08:00"]), needKwh:pick([25,35,45,55]) }));
+
+  const delayCodes = [{code:"START_FAIL",label:"Startade ej"},{code:"INTERRUPT",label:"Avbrott i laddning"},{code:"SLOW_RATE",label:"Långsam laddning"},{code:"CHG_OFFLINE",label:"Laddare offline"},{code:"LATE_ARR",label:"Sen ankomst"}];
+  alarms = [
+    mkAlarm("AL-2001", addMin(now, -35), delayCodes[3], "STU556", "KEMP-09", "Laddare offline → ingen effekt"),
+    mkAlarm("AL-2002", addMin(now, -22), delayCodes[1], "DEF321", "ZAPT-04", "Avbrott (3x) – misstänkt kontakt/kabel"),
+    mkAlarm("AL-2003", addMin(now, -15), delayCodes[2], "XYZ789", "ZAPT-02", "Långsam laddning – effektbegränsning"),
+    mkAlarm("AL-2004", addMin(now, -8),  delayCodes[0], "PQR334", "ZAPT-08", "Startade ej – retry behövs"),
+  ];
+}
+
+/* view switching */
+function setView(view){
+  state.view = view;
+  els(".nav-item").forEach(x=>x.classList.toggle("active", x.dataset.view===view));
+  ["overview","vehicles","chargers","schedule","alerts","ai"].forEach(v=> el("#view-"+v).classList.toggle("hidden", v!==view));
+  const titles = {overview:["Översikt","Eagle • Gantt • Queue"],vehicles:["Fordon","Sessioner • kWh • mönster"],chargers:["Laddare","Snapshot • sortering • health"],schedule:["Schema","Manuellt • CSV-import"],alerts:["Larm","Kronologisk lista • aktiva larm"],ai:["AI insights","Mönster • sannolika orsaker • rekommenderade åtgärder"]};
+  el("#pageTitle").textContent = titles[view][0];
+  el("#pageSubtitle").textContent = titles[view][1];
+  closePanel();
+  renderAll();
+}
+
+function withinHorizonDeparture(d){
+  const hMs = state.horizonHours*3600000;
+  return (d.getTime() - now.getTime()) <= hMs;
+}
+function matchesSearch(str){
+  const q = state.search.trim().toLowerCase();
+  if(!q) return true;
+  return (str||"").toLowerCase().includes(q);
+}
+function applyVehicleFilters(list){
+  return list
+    .filter(v => withinHorizonDeparture(v.departure) || state.horizonHours===24)
+    .filter(v => matchesSearch(`${v.id} ${v.model} ${v.stallId} ${v.reason} ${v.lastError}`))
+    .filter(v => {
+      const f = state.filter;
+      if(f==="all") return true;
+      if(f==="risk") return v.status==="risk";
+      if(f==="miss") return v.status==="miss";
+      if(f==="healthy") return v.status==="ready" || v.status==="charging";
+      if(f==="empty") return false;
+      return true;
+    })
+    .filter(v => !state.scoreFilter ? true : v.status===state.scoreFilter);
+}
+
+function activeAlarmCount(){ return alarms.filter(a=>a.status==="active").length; }
+function healthRank(h){ return h==="healthy" ? 0 : h==="intermittent" ? 1 : h==="fault" ? 2 : 3; }
+function stallHealthChip(stall){ return stall.health==="healthy" ? ["HEALTHY","good"] : stall.health==="intermittent" ? ["INTERMITTENT","warn"] : stall.health==="fault" ? ["FAULT","bad"] : ["OFFLINE","bad"]; }
+function vehicleStatusChip(v){ return v.status==="ready" ? ["READY","good"] : v.status==="charging" ? ["CHARGING","info"] : v.status==="risk" ? ["RISK","warn"] : ["MISS","bad"]; }
+function sessionHasFault(v, stall){
+  const reasonFault = ["Offline","Startade ej","Avbrott"].includes(v.reason);
+  const chargerProblem = (stall.health==="fault" || stall.health==="offline") && stall.currentPowerKw===0 && v.status!=="ready";
+  return (v.status==="miss") || reasonFault || chargerProblem;
+}
+
+function renderClockBadges(){
+  const txt = new Date().toLocaleString('sv-SE', {weekday:'short', hour:'2-digit', minute:'2-digit'});
+  el("#navClock").textContent = txt;
+}
+function renderSidebarBadges(){
+  el("#navVehiclesCount").textContent = `${vehicles.length}`;
+  el("#navStallsCount").textContent = `${stalls.length}`;
+  el("#navScheduleCount").textContent = `${schedules.length}`;
+  if(document.getElementById("navAiCount")) document.getElementById("navAiCount").textContent = `${vehicles.length + stalls.length}`;
+  const act = activeAlarmCount();
+  el("#navAlertsCount").textContent = act ? `${act} aktiv` : "0";
+  el("#navAlertsBadge").style.opacity = act ? "1" : "0.45";
+  el("#navAlertsBadge").querySelector(".dot").className = "dot " + (act ? "warn" : "good");
+  const emptyCount = stalls.filter(s=>!s.assignedVehicleId).length;
+  el("#sidebarEmptyMeta").textContent = `${emptyCount} lediga stalls`;
+  el("#sidebarActiveMeta").textContent = `${act} aktiva larm`;
+}
+
+function renderScoreboard(){
+  const base = vehicles.filter(v=>withinHorizonDeparture(v.departure) || state.horizonHours===24);
+  const counts = { ready: base.filter(v=>v.status==="ready").length, charging: base.filter(v=>v.status==="charging").length, risk: base.filter(v=>v.status==="risk").length, miss: base.filter(v=>v.status==="miss").length };
+  const items = [{key:"ready",label:"Klara",value:counts.ready,dot:"good"},{key:"charging",label:"Pågår",value:counts.charging,dot:"info"},{key:"risk",label:"Risk",value:counts.risk,dot:"warn"},{key:"miss",label:"Missar",value:counts.miss,dot:"bad"}];
+  const sb = el("#scoreboard"); sb.innerHTML = "";
+  items.forEach(it=>{
+    const div=document.createElement("div");
+    div.className="score"+(state.scoreFilter===it.key?" active":"");
+    div.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;"><div class="kpi">${it.value}</div><span class="badge"><span class="dot ${it.dot}"></span>${it.key.toUpperCase()}</span></div><div class="label">${it.label} inom ${state.horizonHours}h</div>`;
+    div.addEventListener("click", ()=>{ state.scoreFilter=(state.scoreFilter===it.key)?null:it.key; toast(`Filter: ${state.scoreFilter?it.label:"Av"} (KPI)`); clearSelection(); renderAll(); });
+    sb.appendChild(div);
+  });
+}
+
+function renderOverviewMeta(){
+  const vs = applyVehicleFilters(vehicles);
+  const nextDep = vs.map(v=>v.departure).sort((a,b)=>a-b)[0];
+  const totalWithin = vehicles.filter(v=>withinHorizonDeparture(v.departure) || state.horizonHours===24).length;
+  const emptyCount = stalls.filter(s=>!s.assignedVehicleId).length;
+  const act = activeAlarmCount();
+  el("#summaryMeta").textContent = nextDep ? `Tidshorisont: ${state.horizonHours}h • Nästa avresa: ${fmtTime(nextDep)} • Visar ${vs.length}/${totalWithin} fordon` : `Tidshorisont: ${state.horizonHours}h • Visar 0 fordon`;
+  el("#gridMeta").textContent = `${stalls.length} stalls`;
+  el("#queueMeta").textContent = `${act} aktiva larm`;
+  el("#ganttMeta").textContent = `${vs.length} rader`;
+  el("#emptyMeta").textContent = `${emptyCount} lediga`;
+  el("#activeMeta").textContent = `${act} aktiva larm`;
+}
+
+function renderEagle(){
+  const vs = applyVehicleFilters(vehicles);
+  const visibleByStall = new Map(vs.map(v=>[v.stallId, v]));
+  const eagle = el("#eagle"); eagle.innerHTML = "";
+  stalls.forEach(stall=>{
+    const vAll = stall.assignedVehicleId ? vehicles.find(v=>v.id===stall.assignedVehicleId) : null;
+    const vVisible = vAll ? (visibleByStall.get(stall.id) || null) : null;
+    if(state.filter==="empty" && stall.assignedVehicleId) return;
+
+    const health = stallHealthChip(stall);
+    let cls = "stall";
+    if(!vAll) cls += (stall.health==="healthy" ? " empty-ok" : " empty-bad");
+    else cls += (sessionHasFault(vAll, stall) ? " fault" : " ok");
+    if(isSelected("stall", stall.id)) cls += " selected";
+
+    const powerLine = `${stall.currentPowerKw} kW / ${stall.maxPowerKw} kW`;
+
+    const div = document.createElement("div");
+    div.className = cls;
+    div.innerHTML = `
+      <div class="top">
+        <div>
+          <div class="id"><span class="icon">🅿️</span> ${stall.id}</div>
+          <div class="sub">
+            ${vAll ? `<span class="icon">🚗</span> <strong>${vAll.id}</strong> <span class="sub">(${escapeHtml(vAll.model)})</span>`
+                  : `<span class="icon">🚗</span> <span class="big-empty">LEDIG</span>`}
+          </div>
+        </div>
+        <span class="chip ${health[1]}">⚡ ${health[0]}${stall.errorCode ? " • "+stall.errorCode : ""}</span>
+      </div>
+      <div class="sub" style="margin-top:8px;">
+        ${vAll ? (vVisible ? `${Math.round(vAll.progressSoc)}% → ${vAll.target}% • dep ${fmtTime(vAll.departure)}` : "FILTERED (matchar ej filter)")
+             : (stall.health==="healthy" ? "Redo för parkering/laddning" : "LEDIG men laddare behöver åtgärd")}
+      </div>
+      <div class="bottom">
+        ${vAll ? (()=>{ const st=vehicleStatusChip(vAll); return `<span class="chip ${st[1]}">${st[0]}</span>`; })()
+             : `<span class="chip good">EMPTY</span>`}
+        <span class="chip"><span class="icon" style="width:18px;height:18px">⚡</span> ${powerLine}</span>
+      </div>
+    `;
+    div.addEventListener("click", ()=>{ setSelection("stall", stall.id); openPanel(buildStallPanel(stall.id)); renderAll(); });
+    eagle.appendChild(div);
+  });
+}
+
+function renderQueue(){
+  const list = alarms.filter(a=>a.status==="active").filter(a=>matchesSearch(`${a.id} ${a.vehicleId} ${a.stallId} ${a.code} ${a.message}`)).sort((a,b)=>b.time-a.time).slice(0,8);
+  const tbody = el("#queue"); tbody.innerHTML = "";
+  list.forEach(a=>{
+    const tr=document.createElement("tr");
+    tr.className = isSelected("alarm", a.id) ? "selected" : "";
+    tr.innerHTML = `<td><span class="badge"><span class="dot warn"></span>${fmtTime(a.time)}</span><div class="sub">${a.id}</div></td>
+      <td><div style="font-weight:900">${escapeHtml(a.label)} – ${escapeHtml(a.message)}</div><div class="sub">🚗 ${a.vehicleId} • 🅿️ ${a.stallId} • Kod: ${a.code}</div></td>
+      <td><span class="chip warn">ACTIVE</span></td>`;
+    tr.addEventListener("click", ()=>{ setSelection("alarm", a.id); setView("alerts"); openPanel(buildAlarmPanel(a.id)); renderAll(); });
+    tbody.appendChild(tr);
+  });
+}
+
+function renderGantt(){
+  const vs = applyVehicleFilters(vehicles).slice().sort((a,b)=>a.departure-b.departure);
+  const gantt = el("#gantt"); gantt.innerHTML = "";
+  vs.forEach(v=>{
+    const depMin = (v.departure - now)/60000;
+    const horizonMin = state.horizonHours*60;
+    const progress = clamp((v.progressSoc / v.target)*100, 0, 100);
+    const deadlinePct = clamp((depMin / horizonMin)*100, 0, 100);
+    const tag = vehicleStatusChip(v);
+    const row=document.createElement("div");
+    row.className="g-row"+(isSelected("vehicle", v.id)?" selected":"");
+    row.innerHTML = `<div><div class="g-name"><span class="icon">🚗</span> ${v.id}</div><div class="sub">🅿️ ${v.stallId} • dep ${fmtTime(v.departure)} • ${escapeHtml(v.model)}</div></div>
+      <div class="bar-wrap"><div class="bar" style="width:${progress}%;"></div><div class="deadline" style="left:${deadlinePct}%;"></div><div class="bar-label">${Math.round(v.progressSoc)}% / ${v.target}%</div></div>
+      <div class="g-meta"><span class="chip ${tag[1]}">${tag[0]}</span><span class="sub">${v.reason}${v.lastError?(" • "+v.lastError):""}</span></div>`;
+    row.addEventListener("click", ()=>{ setSelection("vehicle", v.id); openPanel(buildVehiclePanel(v.id, {showSessions:true})); renderAll(); });
+    gantt.appendChild(row);
+  });
+}
+
+function avgActualKwh(vehicleId){
+  const sessions = vehicleSessions.get(vehicleId) || [];
+  if(!sessions.length) return 0;
+  return sessions.reduce((s,x)=>s + (x.actualKwh ?? 0), 0) / sessions.length;
+}
+function vehicleFaultStats(vehicleId){
+  const sessions = vehicleSessions.get(vehicleId) || [];
+  const faults = sessions.filter(s=>s.status==="fault").length;
+  const total = sessions.length || 1;
+  return { faults, total, rate: Math.round((faults/total)*100) };
+}
+
+function renderVehiclesView(){
+  const sel = el("#schVehicle");
+  if(sel && sel.options.length===0){
+    vehicles.forEach(v=>{ const opt=document.createElement("option"); opt.value=v.id; opt.textContent=`${v.id} (${v.model})`; sel.appendChild(opt); });
+  }
+
+  const list = vehicles.slice();
+  const {key, dir} = state.vehiclesSort;
+  list.sort((a,b)=>{
+    const aSessions=(vehicleSessions.get(a.id)||[]).length, bSessions=(vehicleSessions.get(b.id)||[]).length;
+    const aKwh=avgActualKwh(a.id), bKwh=avgActualKwh(b.id);
+    const aFail=vehicleFaultStats(a.id).faults, bFail=vehicleFaultStats(b.id).faults;
+    const map={vehicle:a.id.localeCompare(b.id),model:a.model.localeCompare(b.model),sessions:aSessions-bSessions,kwh:aKwh-bKwh,fail:aFail-bFail};
+    return (map[key] ?? 0) * dir;
+  });
+
+  const tbody = el("#vehiclesTable"); if(!tbody) return;
+  tbody.innerHTML = "";
+  list.forEach(v=>{
+    if(!matchesSearch(`${v.id} ${v.model}`)) return;
+    const sessions = vehicleSessions.get(v.id) || [];
+    const st = vehicleStatusChip(v);
+    const stat = vehicleFaultStats(v.id);
+    const avg = avgActualKwh(v.id);
+    const tr=document.createElement("tr");
+    tr.className = isSelected("vehicle", v.id) ? "selected" : "";
+    tr.innerHTML = `<td><strong>🚗 ${v.id}</strong><div class="sub">🅿️ ${v.stallId}</div></td>
+      <td>${escapeHtml(v.model)}</td>
+      <td>${sessions.length}</td>
+      <td><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="chip info">avg ${avg.toFixed(1)} kWh</span><span class="chip ${st[1]}">${st[0]}</span></div><div class="sub">klicka för sessioner</div></td>
+      <td><span class="chip ${stat.faults? "bad":"good"}">${stat.faults} / ${stat.total} (${stat.rate}%)</span></td>`;
+    tr.addEventListener("click", ()=>{ setSelection("vehicle", v.id); openPanel(buildVehiclePanel(v.id, {showSessions:true})); renderAll(); });
+    tbody.appendChild(tr);
+  });
+
+  const patt = el("#vehiclePatterns");
+  if(patt){
+    if(state.selected.type==="vehicle"){
+      const vid = state.selected.id;
+      const stat = vehicleFaultStats(vid);
+      patt.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap">
+          <span class="chip ${stat.faults? "bad":"good"}">Felrate: ${stat.rate}%</span>
+          <span class="chip">Typiska orsaker (demo): ${pick(["Avbrott","Startade ej","Långsam","Offline"])}, ${pick(["E07","E13","E21","E34"])}</span>
+          <span class="chip">Ej uppnått behov (demo): ${pick([0,1,2,3])} av ${stat.total} sessioner</span>
+        </div>
+        <div class="footer-note">“Historiskt mönster” kan byggas från logg + schema (per fordon, per tid, per plats).</div>`;
+    } else {
+      patt.innerHTML = `<div class="footer-note">Välj ett fordon i listan för att se mönster.</div>`;
+    }
+  }
+}
+
+function renderChargersView(){
+  const tbody = el("#chargersTable"); if(!tbody) return;
+  let list = stalls.slice();
+  const {key, dir} = state.chargersSort;
+  list.sort((a,b)=>{
+    const aOcc=a.assignedVehicleId?1:0, bOcc=b.assignedVehicleId?1:0;
+    const aHealth=healthRank(a.health), bHealth=healthRank(b.health);
+    const aVeh=a.assignedVehicleId||"", bVeh=b.assignedVehicleId||"";
+    const map={stall:a.id.localeCompare(b.id),health:aHealth-bHealth,occupied:aOcc-bOcc,power:(a.currentPowerKw-b.currentPowerKw),vehicle:aVeh.localeCompare(bVeh)};
+    return (map[key] ?? 0) * dir;
+  });
+  tbody.innerHTML = "";
+  list.forEach(s=>{
+    if(!matchesSearch(`${s.id} ${s.vendor} ${s.errorCode} ${s.assignedVehicleId||""}`)) return;
+    const h=stallHealthChip(s);
+    const status=s.assignedVehicleId?"OCCUPIED":"EMPTY";
+    const statusChip=s.assignedVehicleId?"info":"good";
+    const v=s.assignedVehicleId?vehicles.find(x=>x.id===s.assignedVehicleId):null;
+    const tr=document.createElement("tr");
+    tr.className=isSelected("stall", s.id)?"selected":"";
+    tr.innerHTML = `<td><strong>🅿️ ${s.id}</strong><div class="sub">${s.vendor} • outlet ${String(s.outlet).padStart(2,'0')}</div></td>
+      <td><span class="chip ${h[1]}">${h[0]}${s.errorCode?(" • "+s.errorCode):""}</span></td>
+      <td><span class="chip ${statusChip}">${status}</span></td>
+      <td><span class="chip">⚡ ${s.currentPowerKw} / ${s.maxPowerKw} kW</span></td>
+      <td>${v?`<strong>🚗 ${v.id}</strong><div class="sub">${escapeHtml(v.model)}</div>`:`<span class="sub">—</span>`}</td>`;
+    tr.addEventListener("click", ()=>{ setSelection("stall", s.id); openPanel(buildStallPanel(s.id)); renderAll(); });
+    tbody.appendChild(tr);
+  });
+  el("#chargersMeta").textContent = `${stalls.length} stalls`;
+}
+
+function renderScheduleView(){
+  const tbody = el("#scheduleTable"); if(!tbody) return;
+  tbody.innerHTML = "";
+  schedules.forEach(sch=>{
+    const v = vehicles.find(v=>v.id===sch.vehicleId);
+    const status = pickWeighted([["OK",0.7],["RISK",0.2],["MISS",0.1]]);
+    const statusClass = status==="OK" ? "good" : (status==="RISK" ? "warn" : "bad");
+    const tr=document.createElement("tr");
+    tr.innerHTML = `<td><strong>🚗 ${sch.vehicleId}</strong><div class="sub">${v?escapeHtml(v.model):""}</div></td><td>${sch.arrival}</td><td>${sch.departure}</td><td>${sch.needKwh}</td><td><span class="chip ${statusClass}">${status}</span></td>`;
+    tr.addEventListener("click", ()=>{ if(v){ setSelection("vehicle", v.id); openPanel(buildVehiclePanel(v.id, {showSessions:true})); renderAll(); } });
+    tbody.appendChild(tr);
+  });
+  el("#scheduleMeta").textContent = `${schedules.length} rader`;
+}
+
+function renderAlertsView(){
+  const tbody = el("#alertsTable"); if(!tbody) return;
+  const list = alarms.filter(a=>matchesSearch(`${a.id} ${a.vehicleId} ${a.stallId} ${a.code} ${a.message}`)).slice().sort((a,b)=>b.time-a.time);
+  tbody.innerHTML = "";
+  list.forEach(a=>{
+    const stClass=a.status==="active"?"warn":"good";
+    const stLabel=a.status==="active"?"ACTIVE":"CLOSED";
+    const tr=document.createElement("tr");
+    tr.className=isSelected("alarm", a.id)?"selected":"";
+    tr.innerHTML = `<td>${fmtTime(a.time)}<div class="sub">${a.id}</div></td>
+      <td><div style="font-weight:900">${escapeHtml(a.label)} – ${escapeHtml(a.message)}</div><div class="sub">🚗 ${a.vehicleId} • 🅿️ ${a.stallId} • Kod: ${a.code}</div></td>
+      <td><span class="chip ${stClass}">${stLabel}</span></td>
+      <td><button class="${a.status==='active' ? 'good' : 'primary'}" data-close="${a.id}">${a.status==='active'?'Stäng':'Öppna'}</button></td>`;
+    tr.addEventListener("click", (ev)=>{ if(ev.target && ev.target.dataset && ev.target.dataset.close) return; setSelection("alarm", a.id); openPanel(buildAlarmPanel(a.id)); renderAll(); });
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll("button[data-close]").forEach(btn=>{
+    btn.addEventListener("click", (ev)=>{ ev.stopPropagation(); toggleAlarm(btn.dataset.close); });
+  });
+}
+
+function avgActualKwhLabel(vehicleId){ return `${avgActualKwh(vehicleId).toFixed(1)} kWh`; }
+
+function buildVehiclePanel(vehicleId, opts={}){
+  const v = vehicles.find(x=>x.id===vehicleId);
+  const stall = stalls.find(s=>s.id===v.stallId);
+  const tag = vehicleStatusChip(v);
+  const etaAfter = v.estDone > v.departure;
+  const eta = fmtTime(v.estDone);
+  const depart = fmtTime(v.departure);
+
+  const kv = [
+    {k:"Regnummer", v:v.id},
+    {k:"Modell", v:v.model},
+    {k:"Nuvarande SoC", v:`${Math.round(v.progressSoc)}%`},
+    {k:"Mål SoC", v:`${v.target}%`},
+    {k:"ETA klar", v:eta, cls: etaAfter ? "badbg" : "okbg"},
+    {k:"Deadline", v:depart, cls: etaAfter ? "badbg" : "okbg"},
+    {k:"Orsak", v:`${v.reason}${v.lastError?(" • "+v.lastError):""}`, cls: (v.status==="miss" ? "badbg" : (v.status==="risk" ? "warnbg" : ""))},
+    {k:"Stall (max)", v:`🅿️ ${stall.id} • ${stall.maxPowerKw} kW`},
+    {k:"Current power", v:`⚡ ${stall.currentPowerKw} kW`, cls: (stall.currentPowerKw===0 && v.status!=="ready" ? "warnbg" : "")},
+    {k:"Charger health", v:`${stallHealthChip(stall)[0]}${stall.errorCode?(" • "+stall.errorCode):""}`, cls: (stall.health==="fault"||stall.health==="offline") ? "badbg" : (stall.health==="intermittent" ? "warnbg" : "")},
+    {k:"Riskbedömning", v: etaAfter ? "⚠️ Beräknad klar efter avresa" : "OK – klar före avresa (demo)", cls: etaAfter ? "badbg" : "okbg"},
+    {k:"kWh / session (avg)", v: `${avgActualKwh(v.id).toFixed(1)} kWh`}
+  ];
+
+  const aiText = etaAfter
+    ? `AI: Fordonet blir sannolikt inte klart i tid. Orsak kan vara låg effekt (${stall.currentPowerKw} kW), laddare ${stall.health.toUpperCase()} eller avbrott (${v.lastError||"—"}). Rek: byt stall, restart session eller sänk mål.`
+    : `AI: Ser OK ut. Fortsätt övervaka effekt och eventuella avbrott.`;
+
+  const sessions = vehicleSessions.get(v.id) || [];
+  const events = mockTimelineForVehicle(v, sessions, opts.showSessions);
+  events.unshift({t:"", msg:"", html:`<div class="sub" style="font-weight:900">🤖 AI-bedömning</div><div class="sub">${escapeHtml(aiText)}</div>`});
+
+  return {
+    title: `🚗 ${v.id} • Fordon`,
+    subtitle: `${tag[0]} • 🅿️ ${v.stallId} • dep ${depart} • ${v.model}`,
+    kv,
+    chart: { series: sessionCurves.get(v.id) || [], meta: `max ${stall.maxPowerKw} kW • nu ${stall.currentPowerKw} kW` },
+    events,
+    actions: [
+      {label:"Restart session", cls:"good", on:()=>restartSession(v.id)},
+      {label:"Byt stall", cls:"warn", on:()=>moveVehicle(v.id)},
+      {label:"Skapa ärende", cls:"primary", on:()=>toast(`Ärende skapat för 🚗 ${v.id} (demo)`)},
+      {label:"Öppna stall", cls:"", on:()=> (setSelection("stall", stall.id), openPanel(buildStallPanel(stall.id)), renderAll())},
+    ]
+  };
+}
+
+function buildStallPanel(stallId){
+  const s = stalls.find(x=>x.id===stallId);
+  const v = s.assignedVehicleId ? vehicles.find(v=>v.id===s.assignedVehicleId) : null;
+  const h = stallHealthChip(s);
+  const occupied = !!v;
+  const suspicious = occupied && s.currentPowerKw===0 && v.status!=="ready";
+
+  const kv = [
+    {k:"Stall", v:`🅿️ ${s.id}`},
+    {k:"Hårdvara", v:s.vendor},
+    {k:"Uttag", v:String(s.outlet).padStart(2,'0')},
+    {k:"Max effekt", v:`${s.maxPowerKw} kW`},
+    {k:"Nuvarande effekt", v:`${s.currentPowerKw} kW`, cls: suspicious ? "badbg" : (s.currentPowerKw===0 && occupied ? "warnbg" : "")},
+    {k:"Health", v:`${h[0]}${s.errorCode?(" • "+s.errorCode):""}`, cls: (s.health==="fault"||s.health==="offline") ? "badbg" : (s.health==="intermittent" ? "warnbg" : "")},
+    {k:"Senast kontakt", v:fmtTime(s.lastSeen), cls: (s.health==="offline" ? "badbg" : "")},
+    {k:"Fordon", v: v ? `🚗 ${v.id} (${v.model})` : "LEDIG"},
+    {k:"Session", v: v ? (v.status==="charging" ? "Active (demo)" : "Inactive (demo)") : "—", cls: suspicious ? "badbg" : "" },
+  ];
+
+  const aiText = !occupied
+    ? (s.health==="healthy" ? "AI: Ledig plats och laddare ser frisk ut." : "AI: Ledig plats men laddaren verkar ha problem – skapa ärende innan nästa bil.")
+    : (suspicious
+        ? `AI: Effekt=0 kW trots aktivt fordon. Trolig orsak: laddare ${s.health.toUpperCase()} / kommunikation / kontakt. Rek: reboot, byt stall eller vendor-case.`
+        : `AI: Laddningen ser normal ut. Fortsätt övervaka (nu ${s.currentPowerKw} kW).`);
+
+  const events = mockTimelineForStall(s);
+  events.unshift({t:"", msg:"", html:`<div class="sub" style="font-weight:900">🤖 AI-bedömning</div><div class="sub">${escapeHtml(aiText)}</div>`});
+
+  return {
+    title: `🅿️ ${s.id} • Stall / Laddare`,
+    subtitle: `⚡ ${s.currentPowerKw} kW • max ${s.maxPowerKw} kW • ${h[0]}${s.errorCode?(" • "+s.errorCode):""}`,
+    kv,
+    chart: v ? { series: sessionCurves.get(v.id) || [], meta: `max ${s.maxPowerKw} kW • nu ${s.currentPowerKw} kW` } : null,
+    events,
+    actions: [
+      {label:"Reboot", cls:"warn", on:()=>rebootCharger(s.id)},
+      {label:"Disable", cls:"bad", on:()=>disableStall(s.id)},
+      {label:"Skapa vendor-case", cls:"primary", on:()=>toast(`Vendor-case skapat för 🅿️ ${s.id} (demo)`)},
+      {label:"Öppna fordon", cls:"", on:()=> v ? (setSelection("vehicle", v.id), openPanel(buildVehiclePanel(v.id, {showSessions:true})), renderAll()) : toast("Ingen bil i detta stall")},
+    ]
+  };
+}
+
+function buildAlarmPanel(alarmId){
+  const a = alarms.find(x=>x.id===alarmId);
+  const v = vehicles.find(v=>v.id===a.vehicleId);
+  const s = stalls.find(s=>s.id===a.stallId);
+  const stLabel = a.status==="active" ? "ACTIVE" : "CLOSED";
+
+  const likely = (()=>{
+    if(a.code==="CHG_OFFLINE") return "Sannolik orsak: laddare offline/kommunikation (E07).";
+    if(a.code==="START_FAIL") return "Sannolik orsak: auth/start-fail (E13) eller kabel/handshake.";
+    if(a.code==="INTERRUPT") return "Sannolik orsak: avbrott p.g.a. kontakt/kabel eller jordfel (E21).";
+    if(a.code==="SLOW_RATE") return "Sannolik orsak: effektbegränsning/lastbalansering eller temp-derating.";
+    return "Sannolik orsak: behövs mer data (logg, meter, temperatur, nät).";
+  })();
+
+  const aiText = `AI: ${likely} Rek: kontrollera power (nu ${s? s.currentPowerKw:0} kW), health (${s? s.health.toUpperCase():"—"}), och kör playbook: reboot/restart/omflytt.`;
+
+  const kv = [
+    {k:"Larm", v:`${a.label} (${a.code})`, cls:"badbg"},
+    {k:"Status", v:stLabel, cls: a.status==="active" ? "badbg" : "okbg"},
+    {k:"Tid", v:fmtTime(a.time)},
+    {k:"Fordon", v:`🚗 ${a.vehicleId} (${v? v.model : ""})`},
+    {k:"Stall", v:`🅿️ ${a.stallId}`},
+    {k:"Nuvarande effekt", v:`⚡ ${s? s.currentPowerKw : 0} kW`, cls: (s && s.currentPowerKw===0 ? "badbg" : "")},
+    {k:"Max effekt", v:`⚡ ${s? s.maxPowerKw : 0} kW`},
+    {k:"Health", v:`${s? stallHealthChip(s)[0] : "—"}${s && s.errorCode?(" • "+s.errorCode):""}`, cls: (s && (s.health==="fault"||s.health==="offline")) ? "badbg" : (s && s.health==="intermittent" ? "warnbg" : "")},
+    {k:"AI-bedömning", v:aiText, cls:"badbg"},
+  ];
+
+  return {
+    title: `🚨 ${a.id} • Larm`,
+    subtitle: `${a.label} • ${stLabel}`,
+    kv,
+    chart: (v && s) ? { series: sessionCurves.get(v.id) || [], meta: `max ${s.maxPowerKw} kW • nu ${s.currentPowerKw} kW` } : null,
+    events: mockTimelineForAlarm(a),
+    actions: [
+      {label: a.status==="active" ? "Stäng larm" : "Öppna larm", cls: a.status==="active" ? "good" : "primary", on:()=>toggleAlarm(a.id)},
+      {label:"Öppna fordon", cls:"", on:()=> v ? (setSelection("vehicle", v.id), openPanel(buildVehiclePanel(v.id, {showSessions:true})), renderAll()) : toast("Saknar fordon")},
+      {label:"Öppna stall", cls:"", on:()=> s ? (setSelection("stall", s.id), openPanel(buildStallPanel(s.id)), renderAll()) : toast("Saknar stall")},
+      {label:"Ställ in larm", cls:"warn", on:()=>el("#btnAlertSettings").click()},
+    ]
+  };
+}
+
+function openPanel(model){
+  el("#panelTitle").textContent = model.title;
+  el("#panelSubtitle").textContent = model.subtitle;
+
+  const kv = el("#panelKV"); kv.innerHTML = "";
+  model.kv.forEach((it)=>{
+    const k = (it && typeof it === "object" && ("k" in it)) ? it.k : it[0];
+    const v = (it && typeof it === "object" && ("v" in it)) ? it.v : it[1];
+    const cls = (it && typeof it === "object" && ("cls" in it)) ? it.cls : "";
+    const div=document.createElement("div");
+    div.className = "item" + (cls ? (" "+cls) : "");
+    div.innerHTML = `<div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(String(v))}</div>`;
+    kv.appendChild(div);
+  });
+
+  const wrap = el("#panelChartWrap");
+  if(model.chart && model.chart.series && model.chart.series.length){
+    wrap.style.display="block";
+    el("#panelChartMeta").textContent = model.chart.meta || "—";
+    drawLineChart(el("#panelChart"), model.chart.series);
+  } else wrap.style.display="none";
+
+  const tl = el("#panelTimeline"); tl.innerHTML = "";
+  model.events.forEach(ev=>{
+    const d=document.createElement("div");
+    d.className="t-item";
+    d.innerHTML = `<div class="sub">${ev.html ?? escapeHtml(ev.msg)}</div><div class="sub">${escapeHtml(ev.t)}</div>`;
+    tl.appendChild(d);
+  });
+  el("#panelEventCount").textContent = `${model.events.length} items`;
+
+  const acts = el("#panelActions"); acts.innerHTML = "";
+  model.actions.forEach(a=>{
+    const b=document.createElement("button");
+    b.textContent=a.label;
+    if(a.cls==="primary") b.classList.add("primary");
+    if(a.cls==="good") b.classList.add("good");
+    if(a.cls==="warn") b.classList.add("warn");
+    if(a.cls==="bad") b.classList.add("bad");
+    b.addEventListener("click", a.on);
+    acts.appendChild(b);
+  });
+
+  el("#panel").classList.add("open");
+
+  // wire session save buttons inside panel (if present)
+  document.querySelectorAll("button[data-save-session]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const sid = btn.dataset.saveSession;
+      const input = document.querySelector(`input[data-session="${CSS.escape(sid)}"]`);
+      if(!input) return;
+      const newVal = Number(input.value);
+      const vid = sid.split("-SESS-")[0];
+      const sessions = vehicleSessions.get(vid) || [];
+      const sess = sessions.find(s=>s.id===sid);
+      if(sess){
+        sess.actualKwh = isFinite(newVal) ? Math.max(0, newVal) : sess.actualKwh;
+        toast(`${sid}: sparat faktisk kWh = ${sess.actualKwh} (demo)`);
+        openPanel(buildVehiclePanel(vid, {showSessions:true}));
+        renderAll();
+      }
+    }, {once:true});
+  });
+}
+function closePanel(){ el("#panel").classList.remove("open"); }
+function clearSelection(){ state.selected={type:null,id:null}; closePanel(); }
+function setSelection(type, id){ state.selected={type,id}; }
+function isSelected(type, id){ return state.selected.type===type && state.selected.id===id; }
+
+function drawLineChart(canvas, series){
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const padL=40, padR=12, padT=10, padB=26;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,w,h);
+  const ys = series.map(p=>p.kw);
+  const yMax = Math.max(10, ...ys);
+  const yMin = 0;
+  ctx.strokeStyle="#e4e7ec"; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=padT+(plotH*i/4);
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+plotW,y); ctx.stroke();
+  }
+  for(let i=0;i<=5;i++){
+    const x=padL+(plotW*i/5);
+    ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,padT+plotH); ctx.stroke();
+  }
+  ctx.fillStyle="#667085"; ctx.font="11px ui-sans-serif, system-ui";
+  for(let i=0;i<=4;i++){
+    const val=Math.round(yMax*(1-i/4));
+    const y=padT+(plotH*i/4);
+    ctx.fillText(String(val), 8, y+4);
+  }
+  ctx.strokeStyle="#2e90fa"; ctx.lineWidth=2;
+  ctx.beginPath();
+  series.forEach((p, idx)=>{
+    const x=padL+(plotW*idx/(series.length-1));
+    const y=padT+plotH*(1-(p.kw-yMin)/(yMax-yMin));
+    if(idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  ctx.lineTo(padL+plotW, padT+plotH);
+  ctx.lineTo(padL, padT+plotH);
+  ctx.closePath();
+  ctx.fillStyle="rgba(46,144,250,.10)"; ctx.fill();
+  ctx.fillStyle="#1570ef";
+  series.forEach((p, idx)=>{
+    if(idx % Math.ceil(series.length/10) !== 0 && idx !== series.length-1) return;
+    const x=padL+(plotW*idx/(series.length-1));
+    const y=padT+plotH*(1-(p.kw-yMin)/(yMax-yMin));
+    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+  });
+  ctx.fillStyle="#667085";
+  ctx.fillText(`${Math.abs(series[0].tMin)} min`, padL, h-8);
+  ctx.fillText(`${Math.abs(series[series.length-1].tMin)} min`, padL+plotW-38, h-8);
+}
+
+function mockTimelineForVehicle(v, sessions, showSessions){
+  const base = addMin(now, -20);
+  const items = [
+    {t: fmtTime(addMin(base, 2)), msg:`Ankomst registrerad`},
+    {t: fmtTime(addMin(base, 6)), msg:`Parkerad i 🅿️ ${v.stallId}`},
+    {t: fmtTime(addMin(base, 10)), msg:`Session initierad`},
+  ];
+  if(v.status==="risk" || v.status==="miss"){
+    items.push({t: fmtTime(addMin(base, 13)), msg:`Avvikelse: ${v.reason}${v.lastError?(" ("+v.lastError+")"):""}`});
+  }
+  items.push({t: fmtTime(addMin(base, 19)), msg:`Senaste SoC: ${Math.round(v.progressSoc)}%`});
+  if(showSessions){
+    items.push({t:"", msg:"", html:`<div style="margin-top:8px;font-weight:900">Sessioner (redigera faktisk kWh)</div>`});
+    sessions.forEach(s=>{
+      const st = s.status==="fault" ? "bad" : "good";
+      const html = `
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+          <div>
+            <div style="font-weight:800">${escapeHtml(s.id)}</div>
+            <div class="sub">Plan: ${s.plannedKwh} kWh • Status: <span class="chip ${st}">${s.status.toUpperCase()}</span></div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="field" style="padding:8px;border-radius:12px">
+              <label style="margin:0 0 4px 0">Faktisk (kWh)</label>
+              <input type="number" value="${s.actualKwh}" data-session="${escapeHtml(s.id)}" style="width:120px"/>
+            </div>
+            <button class="primary" data-save-session="${escapeHtml(s.id)}">Spara</button>
+          </div>
+        </div>`;
+      items.push({t: fmtTime(s.end), html, msg:""});
+    });
+  }
+  return items;
+}
+function mockTimelineForStall(s){
+  const base = addMin(now, -45);
+  const items = [{t: fmtTime(addMin(base, 5)), msg:`Heartbeat OK`},{t: fmtTime(addMin(base, 14)), msg:`Fordon: ${s.assignedVehicleId || "LEDIG"}`}];
+  if(s.health!=="healthy"){
+    items.push({t: fmtTime(addMin(base, 18)), msg:`Incident: ${s.health.toUpperCase()} ${s.errorCode?("("+s.errorCode+")"):""}`});
+    items.push({t: fmtTime(addMin(base, 25)), msg:`Auto-diagnos (demo)`});
+  }
+  items.push({t: fmtTime(addMin(base, 35)), msg:`Senast kontakt: ${fmtTime(s.lastSeen)}`});
+  return items;
+}
+function mockTimelineForAlarm(a){
+  const base = addMin(a.time, -10);
+  return [{t: fmtTime(a.time), msg:`Skapad: ${a.label} (${a.code})`},{t: fmtTime(addMin(base, 3)), msg:`Auto-triage: kontrollera ⚡ power och status`},{t: fmtTime(addMin(base, 6)), msg:`Notis skickad (demo)`},{t: fmtTime(addMin(base, 9)), msg:`Väntar på åtgärd (demo)`}];
+}
+
+function restartSession(vehicleId){
+  const v = vehicles.find(v=>v.id===vehicleId);
+  const s = stalls.find(st=>st.id===v.stallId);
+  v.reason="Pågår"; v.status="charging"; v.lastError="";
+  v.progressSoc = Math.min(v.target, v.progressSoc + 4);
+  v.estDone = addMin(now, Math.round((v.target - v.progressSoc)*1.2));
+  s.currentPowerKw = calcCurrentPowerKw(s, v);
+  sessionCurves.set(v.id, makeSessionCurve(s.maxPowerKw));
+  toast(`${v.id}: restart session (demo)`);
+  openPanel(buildVehiclePanel(v.id, {showSessions:true}));
+  renderAll();
+}
+function moveVehicle(vehicleId){
+  const v = vehicles.find(v=>v.id===vehicleId);
+  const old = stalls.find(s=>s.id===v.stallId);
+  const candidates = stalls.filter(s=>s.id!==v.stallId).sort((a,b)=> (a.assignedVehicleId?1:0) - (b.assignedVehicleId?1:0) || healthRank(a.health)-healthRank(b.health));
+  const dest = candidates[0];
+  if(old){ old.assignedVehicleId=null; old.currentPowerKw=0; }
+  dest.assignedVehicleId=v.id;
+  v.stallId=dest.id;
+  v.reason="Omflytt"; v.status="charging";
+  v.progressSoc = Math.min(v.target, v.progressSoc + 3);
+  v.estDone = addMin(now, Math.round((v.target - v.progressSoc)*1.1));
+  dest.currentPowerKw = calcCurrentPowerKw(dest, v);
+  sessionCurves.set(v.id, makeSessionCurve(dest.maxPowerKw));
+  toast(`${v.id}: flyttad till 🅿️ ${dest.id} (demo)`);
+  openPanel(buildVehiclePanel(v.id, {showSessions:true}));
+  renderAll();
+}
+function disableStall(stallId){
+  const s = stalls.find(s=>s.id===stallId);
+  s.health="offline"; s.errorCode="E07"; s.currentPowerKw=0;
+  toast(`🅿️ ${s.id}: OFFLINE (demo)`);
+  openPanel(buildStallPanel(s.id));
+  renderAll();
+}
+function rebootCharger(stallId){
+  const s = stalls.find(s=>s.id===stallId);
+  s.health="intermittent"; s.errorCode=""; s.lastSeen=new Date();
+  const v = s.assignedVehicleId ? vehicles.find(v=>v.id===s.assignedVehicleId) : null;
+  s.currentPowerKw = v ? calcCurrentPowerKw(s, v) : 0;
+  if(v) sessionCurves.set(v.id, makeSessionCurve(s.maxPowerKw));
+  toast(`🅿️ ${s.id}: reboot (demo)`);
+  openPanel(buildStallPanel(s.id));
+  renderAll();
+}
+function toggleAlarm(id){
+  const a = alarms.find(x=>x.id===id);
+  a.status = (a.status==="active") ? "closed" : "active";
+  toast(`${a.id}: ${a.status.toUpperCase()}`);
+  if(state.view!=="alerts") setView("alerts");
+  openPanel(buildAlarmPanel(a.id));
+  renderAll();
+}
+
+/* modal */
+function openModal(title, subtitle, bodyHtml){
+  el("#modalTitle").textContent = title;
+  el("#modalSubtitle").textContent = subtitle;
+  el("#modalBody").innerHTML = bodyHtml;
+  el("#modalBackdrop").classList.add("open");
+}
+function closeModal(){ el("#modalBackdrop").classList.remove("open"); }
+
+/* sorting */
+function setSort(which, key){
+  const s = which==="chargers" ? state.chargersSort : state.vehiclesSort;
+  if(s.key===key) s.dir *= -1;
+  else { s.key = key; s.dir = 1; }
+  renderAll();
+}
+
+function renderAll(){
+  renderClockBadges();
+  renderSidebarBadges();
+  renderScoreboard();
+  renderOverviewMeta();
+  renderEagle();
+  renderQueue();
+  renderGantt();
+  renderVehiclesView();
+  renderChargersView();
+  renderScheduleView();
+  renderAlertsView();
+  renderAIInsightsView();
+}
+
+/* Wiring */
+els(".nav-item").forEach(item=> item.addEventListener("click", ()=> setView(item.dataset.view)));
+el("#panelClose").addEventListener("click", closePanel);
+el("#btnClear").addEventListener("click", ()=>{ state.scoreFilter=null; state.search=""; state.filter="all"; el("#search").value=""; el("#filter").value="all"; toast("Rensat filter"); clearSelection(); renderAll(); });
+el("#btnSimulate").addEventListener("click", ()=>{
+  const v = pick(vehicles);
+  v.status = pickWeighted([["charging",0.55],["risk",0.25],["miss",0.20]]);
+  v.reason = v.status==="miss" ? pick(["Offline","Startade ej","Avbrott","Långsam"]) : (v.status==="risk" ? pick(["Långsam","Peak limit","Intermittent"]) : "Pågår");
+  v.lastError = v.reason==="Offline" ? "E07" : (v.reason==="Startade ej" ? "E13" : (v.reason==="Avbrott" ? "E21" : ""));
+  const s = stalls.find(st=>st.id===v.stallId);
+  s.currentPowerKw = calcCurrentPowerKw(s, v);
+
+  if(Math.random() < 0.6){
+    const code = pick([{code:"CHG_OFFLINE", label:"Laddare offline"},{code:"INTERRUPT", label:"Avbrott i laddning"},{code:"SLOW_RATE", label:"Långsam laddning"},{code:"START_FAIL", label:"Startade ej"}]);
+    const id = "AL-" + String(2000 + Math.floor(Math.random()*800));
+    alarms.unshift(mkAlarm(id, new Date(), code, v.id, v.stallId, `${code.label} upptäckt – ${v.id}`));
+  }
+  toast("Simulering körd (demo)");
+  renderAll();
+});
+el("#horizon").addEventListener("change", (e)=>{ state.horizonHours=parseInt(e.target.value,10); toast(`Tidshorisont: ${state.horizonHours}h`); renderAll(); });
+el("#search").addEventListener("input", (e)=>{ state.search=e.target.value; renderAll(); });
+el("#filter").addEventListener("change", (e)=>{ state.filter=e.target.value; toast(`Filter: ${state.filter}`); renderAll(); });
+
+el("#btnTogglePattern").addEventListener("click", ()=>{ state.patternMode=!state.patternMode; el("#btnTogglePattern").textContent = `Historiskt mönster: ${state.patternMode ? "PÅ" : "AV"}`; toast(`Historiskt mönster: ${state.patternMode ? "PÅ" : "AV"} (demo)`); });
+
+if(document.getElementById("btnRefreshInsights")){
+  document.getElementById("btnRefreshInsights").addEventListener("click", ()=>{
+    toast("AI insights uppdaterade (demo)");
+    renderAIInsightsView();
+  });
+}
+
+
+el("#btnAlertSettings").addEventListener("click", ()=>{
+  openModal("Ställ in larm", "Demo-inställningar", `
+    <div class="form-row">
+      <div class="field"><label>Tröskel: Långsam laddning</label><select><option>Under 20 kW (15 min)</option><option selected>Under 30 kW (10 min)</option><option>Under 40 kW (10 min)</option></select></div>
+      <div class="field"><label>Laddare offline</label><select><option selected>Skapa larm direkt</option><option>Efter 2 minuter</option><option>Efter 5 minuter</option></select></div>
+      <div class="field"><label>Notifiering</label><select><option selected>Dashboard + e-post (demo)</option><option>Dashboard only</option><option>SMS (demo)</option></select></div>
+      <div class="field"><label>Auto-playbook</label><select><option selected>Av</option><option>På (restart session)</option><option>På (reboot charger)</option></select></div>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="toast('Larm-inställningar sparade (demo)'); document.getElementById('modalBackdrop').classList.remove('open');">Spara</button>
+      <button onclick="document.getElementById('modalBackdrop').classList.remove('open');">Avbryt</button>
+    </div>
+  `);
+});
+
+el("#btnCloseAll").addEventListener("click", ()=>{ alarms.forEach(a=>a.status="closed"); toast("Alla larm stängda (demo)"); renderAll(); });
+
+el("#btnOpenCsvHelp").addEventListener("click", ()=>{
+  openModal("CSV-format för schema", "Kolumner: vehicle_id, arrival, departure, need_kwh", `
+    <div class="field">
+      <label>Exempel</label>
+      <div style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size:12px; white-space:pre; line-height:1.5">
+vehicle_id,arrival,departure,need_kwh
+ABC123,18:00,07:10,35
+XYZ789,18:30,06:30,45
+KLM456,19:00,08:00,25
+      </div>
+    </div>
+  `);
+});
+
+el("#btnClearSchedule").addEventListener("click", ()=>{ schedules=[]; toast("Schema rensat (demo)"); renderAll(); });
+
+el("#btnAddSchedule").addEventListener("click", ()=>{
+  const vehicleId = el("#schVehicle").value;
+  const arrival = el("#schArr").value || "18:00";
+  const departure = el("#schDep").value || "07:10";
+  const needKwh = Number(el("#schNeed").value || 35);
+  schedules.unshift({ id:"SCH-"+String(1000+Math.floor(Math.random()*900)), vehicleId, arrival, departure, needKwh });
+  toast("Schema tillagt (demo)");
+  renderAll();
+});
+
+el("#csvFile").addEventListener("change", async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  const rows = parseCsv(text);
+  const added = importScheduleCsv(rows);
+  toast(`CSV import: lade till ${added} rader (demo)`);
+  e.target.value = "";
+  renderAll();
+});
+
+el("#modalClose").addEventListener("click", closeModal);
+el("#modalBackdrop").addEventListener("click", (e)=>{ if(e.target.id==="modalBackdrop") closeModal(); });
+
+// header sorts
+document.addEventListener("click", (e)=>{
+  const th = e.target.closest("th[data-sort]");
+  if(!th) return;
+  const table = th.closest("table");
+  const key = th.dataset.sort;
+  if(table && table.querySelector("#chargersTable")) setSort("chargers", key);
+  if(table && table.querySelector("#vehiclesTable")) setSort("vehicles", key);
+});
+
+/* CSV helpers */
+function parseCsv(text){
+  const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
+  if(!lines.length) return [];
+  const header = lines[0].split(",").map(s=>s.trim());
+  const rows = [];
+  for(let i=1;i<lines.length;i++){
+    const cols = lines[i].split(",").map(s=>s.trim());
+    const obj = {};
+    header.forEach((h, idx)=> obj[h] = cols[idx] ?? "");
+    rows.push(obj);
+  }
+  return rows;
+}
+function importScheduleCsv(rows){
+  let added = 0;
+  rows.forEach(r=>{
+    const vehicleId = (r.vehicle_id || r.vehicleId || "").trim();
+    const arrival = (r.arrival || "").trim();
+    const departure = (r.departure || "").trim();
+    const needKwh = Number((r.need_kwh || r.needKwh || "").trim());
+    if(!vehicleId || !arrival || !departure || !isFinite(needKwh)) return;
+    schedules.unshift({ id:"SCH-"+String(1000+Math.floor(Math.random()*900)), vehicleId, arrival, departure, needKwh });
+    added++;
+  });
+  return added;
+}
+
+
+function insightForVehicle(v){
+  const sessions = vehicleSessions.get(v.id) || [];
+  const faults = sessions.filter(s=>s.status==="fault").length;
+  const faultRate = sessions.length ? Math.round((faults/sessions.length)*100) : 0;
+  const stall = stalls.find(s=>s.id===v.stallId);
+  const etaAfter = v.estDone > v.departure;
+  const main = etaAfter ? "Risk: ETA efter deadline" : (faultRate>=40 ? "Hög felrate" : "Normal");
+  const rec = etaAfter ? "Rek: byt stall eller sänk mål SoC" : (faultRate>=40 ? "Rek: analysera felkodsmönster och kabel/connector" : "Rek: fortsätt monitorera");
+  return {main, faultRate, rec, stall, etaAfter};
+}
+function insightForCharger(s){
+  const v = s.assignedVehicleId ? vehicles.find(v=>v.id===s.assignedVehicleId) : null;
+  const suspicious = v && s.currentPowerKw===0 && v.status!=="ready";
+  const main = (s.health==="offline") ? "Offline" : (s.health==="fault" ? "Fault" : (suspicious ? "Effekt 0 kW" : "OK"));
+  const rec = (s.health==="offline"||s.health==="fault") ? "Rek: vendor-case + tekniker" : (suspicious ? "Rek: reboot/restart/omflytt" : "Rek: ingen åtgärd");
+  return {main, rec, suspicious};
+}
+
+function renderAIInsightsView(){
+  const wrap = document.getElementById("aiInsightsWrap");
+  if(!wrap) return;
+  if(state.view !== "ai") return;
+
+  const vehicleCards = vehicles.map(v=>{
+    const i = insightForVehicle(v);
+    const danger = i.etaAfter || i.faultRate>=40;
+    return `
+      <div class="card" style="box-shadow:none;border-color:var(--line);margin-bottom:10px;">
+        <div class="content" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+          <div style="min-width:260px">
+            <div style="font-weight:900">🚗 ${v.id} <span class="sub">(${escapeHtml(v.model)})</span></div>
+            <div class="sub">🅿️ ${v.stallId} • dep ${fmtTime(v.departure)} • ETA ${fmtTime(v.estDone)}</div>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <span class="chip ${danger ? "bad" : "good"}">${escapeHtml(i.main)}</span>
+              <span class="chip ${i.faultRate>=40 ? "bad" : (i.faultRate>=20 ? "warn" : "good")}">Felrate: ${i.faultRate}%</span>
+              <span class="chip">⚡ ${i.stall ? i.stall.currentPowerKw : 0} kW</span>
+            </div>
+            <div class="footer-note" style="margin-top:8px">🤖 ${escapeHtml(i.rec)}</div>
+          </div>
+          <div class="actions">
+            <button class="primary" onclick="setSelection('vehicle','${v.id}'); openPanel(buildVehiclePanel('${v.id}', {showSessions:true})); renderAll();">Öppna</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  const chargerCards = stalls.map(s=>{
+    const i = insightForCharger(s);
+    const danger = (s.health==="fault"||s.health==="offline"||i.suspicious);
+    return `
+      <div class="card" style="box-shadow:none;border-color:var(--line);margin-bottom:10px;">
+        <div class="content" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+          <div style="min-width:260px">
+            <div style="font-weight:900">🅿️ ${s.id} <span class="sub">(max ${s.maxPowerKw} kW)</span></div>
+            <div class="sub">Status: ${s.assignedVehicleId ? "OCCUPIED" : "EMPTY"} • Health: ${s.health.toUpperCase()}${s.errorCode?(" • "+s.errorCode):""}</div>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <span class="chip ${danger ? "bad" : "good"}">${escapeHtml(i.main)}</span>
+              <span class="chip">⚡ ${s.currentPowerKw} / ${s.maxPowerKw} kW</span>
+              <span class="chip">${s.assignedVehicleId ? ("🚗 "+s.assignedVehicleId) : "LEDIG"}</span>
+            </div>
+            <div class="footer-note" style="margin-top:8px">🤖 ${escapeHtml(i.rec)}</div>
+          </div>
+          <div class="actions">
+            <button class="primary" onclick="setSelection('stall','${s.id}'); openPanel(buildStallPanel('${s.id}')); renderAll();">Öppna</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  wrap.innerHTML = `
+    <div class="card" style="box-shadow:none;border-color:var(--line);margin-bottom:14px;">
+      <div class="content">
+        <div style="font-weight:900">Översikt</div>
+        <div class="sub">Demo-insikter. I riktig version: basera på laddhistorik, felkoder, MTTR/MTBF, schema-efterlevnad och energimängd.</div>
+      </div>
+    </div>
+
+    <div class="card" style="box-shadow:none;border-color:var(--line);margin-bottom:14px;">
+      <div class="content">
+        <div style="font-weight:900;margin-bottom:6px">Per fordon</div>
+        ${vehicleCards}
+      </div>
+    </div>
+
+    <div class="card" style="box-shadow:none;border-color:var(--line);">
+      <div class="content">
+        <div style="font-weight:900;margin-bottom:6px">Per laddare/stall</div>
+        ${chargerCards}
+      </div>
+    </div>
+  `;
+}
+
+
+/* init */
+setView("overview");
+renderAll();
+setInterval(renderAll, 30000);
+</script>
+</body>
+</html>
